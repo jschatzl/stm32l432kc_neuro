@@ -1,0 +1,7 @@
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/CMakeFiles/stm32l432kc_neuro.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/CMakeFiles/edit_cache.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/CMakeFiles/rebuild_cache.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake/stm32cubemx/CMakeFiles/STM32_Drivers.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake/stm32cubemx/CMakeFiles/FreeRTOS.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake/stm32cubemx/CMakeFiles/edit_cache.dir
+/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake/stm32cubemx/CMakeFiles/rebuild_cache.dir
