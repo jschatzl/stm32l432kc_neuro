@@ -1,0 +1,3 @@
+[submodule "Libs/neuralController"]
+	path = Libs/neuralController
+	url = https://github.com/jschatzl/neuralController.git

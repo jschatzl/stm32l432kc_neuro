@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "neuralController.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,7 +61,13 @@ const osThreadAttr_t defaultTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
-
+double output = 0.0;
+double *input = NULL;
+neuralControllerConfig_st ncConfig;
+control_st control = {0};
+double ***weight = NULL;
+neuron_st **neuron = NULL; 
+float (*randFctPtr)();
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,6 +81,7 @@ static void MX_TIM6_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_DAC1_Init(void);
 void StartDefaultTask(void *argument);
+float generateRandomFloat(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -82,7 +89,20 @@ void StartDefaultTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+float generateRandomFloat(void) {
+    float divider = 10;
+    uint32_t val = 0;
+    HAL_RNG_GenerateRandomNumber(&hrng, &val);
+    float float_val = (val / (float)0xffffffff) / divider;
+    return float_val;
+}
 
+float i_plant(float yn, float u) {
+    float K = 1;
+    float T = 0.1;
+
+    return yn + K * u * T;
+}
 /* USER CODE END 0 */
 
 /**
@@ -124,7 +144,17 @@ int main(void)
   MX_USART2_UART_Init();
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
+  randFctPtr = &generateRandomFloat;
+  input = (double*)calloc(ncConfig.inputs, sizeof(float));
+  ncConfig.hidden_layers = 2;
+  ncConfig.layers = 4;
+  ncConfig.neurons = 8;
+  ncConfig.output_layer_neurons = 1;
+  ncConfig.inputs = 2;
+  ncConfig.setpoint = 1.0;
+  ncConfig.isJordan = true;
 
+  neuralController_Init(&ncConfig, &control, randFctPtr, &weight, &neuron);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -525,9 +555,21 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  float yn = 0;
   /* Infinite loop */
   for(;;)
   {
+    // set input for the next run
+    input[0] = yn;
+    // Run through feed forward + backpropagation
+    neuralController_Run(&ncConfig, &control, &output, input, weight, neuron);
+    /*Calculate next state of the I plant*/
+    yn = i_plant(yn, output);
+    // save error
+    // error_array[i] = (double)ncConfig.setpoint - yn;
+    //error_array[i] = yn;
+    // save epoch
+    //x_values[i] = i;
     osDelay(1);
   }
   /* USER CODE END 5 */

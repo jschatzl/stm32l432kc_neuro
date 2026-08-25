@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake_install.cmake",
-		"/home/jakobs/work/02_embedded/stm32l432kc_neuro/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
