@@ -1,0 +1,34 @@
+@startuml
+skinparam backgroundColor transparent
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam linetype ortho
+
+title Control Loop Block Diagram
+
+rectangle "Reference Input\nr(t)" as Ref
+rectangle "Neural Controller" as NC
+rectangle "Control Element" as Act
+rectangle "Plant (PTn System)" as Plant
+rectangle "Sensor / Measurement" as Sensor
+rectangle "Summation\n(e = r - y)" as Sum
+
+Ref --> Sum : r(t)
+Sensor --> Sum : y(t)
+Sum --> NC : e(t)
+NC --> Act : u(t)
+Act --> Plant : u(t)
+Plant --> Sensor : y(t)
+
+note right of NC
+  - MLP / Jordan network
+  - Online weight update
+  - Adaptive Learning rate η
+end note
+
+note right of Plant
+  - PTn dynamics
+  - Saturation point pre-set
+end note
+
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam roundcorner 12
+
+rectangle "Initialize" as initialize {
+    rectangle "HAL Init" as hal_init
+    rectangle "Peripheral Init" as peripheral_init
+    rectangle "Task and Queues Init" as task_queues_init
+
+    hal_init --> peripheral_init
+    peripheral_init --> task_queues_init
+}
+
+rectangle "Start Scheduler" as start_scheduler
+
+rectangle "UART Com Task" as uart_task
+rectangle "Control Task" as control_task
+
+task_queues_init --> start_scheduler
+start_scheduler --> control_task
+
+control_task --> uart_task
+uart_task --> control_task
+
+@enduml

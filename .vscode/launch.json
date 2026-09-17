@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STM32 Debug (ST-LINK)",
+      "type": "stlinkgdbtarget",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runEntry": "main",
+      "imagesAndSymbols": [
+        {
+          "imageFileName": "${workspaceFolder}/build/Debug/stm32l432kc_neuro.elf",
+          "symbolFileName": "${workspaceFolder}/build/Debug/stm32l432kc_neuro.elf"
+        }
+      ]
+    }
+  ]
+}
