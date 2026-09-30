@@ -52,6 +52,7 @@ RNG_HandleTypeDef hrng;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -60,7 +61,15 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for comTask */
+osThreadId_t comTaskHandle;
+const osThreadAttr_t comTask_attributes = {
+  .name = "comTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
+volatile bool uart2_tx_done = true;
 double output = 0.0;
 double *input = NULL;
 neuralControllerConfig_st ncConfig;
@@ -81,7 +90,7 @@ static void MX_TIM6_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_DAC1_Init(void);
 void StartDefaultTask(void *argument);
-float generateRandomFloat(void);
+void StartcomTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -179,6 +188,9 @@ int main(void)
   /* Create the thread(s) */
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of comTask */
+  comTaskHandle = osThreadNew(StartcomTask, NULL, &comTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -506,6 +518,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+  /* DMA1_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
 
@@ -542,7 +557,12 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == &huart2) {
+        uart2_tx_done = true;
+    }
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -555,6 +575,7 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  (void)argument;
   float yn = 0;
   /* Infinite loop */
   for(;;)
@@ -570,9 +591,40 @@ void StartDefaultTask(void *argument)
     //error_array[i] = yn;
     // save epoch
     //x_values[i] = i;
-    osDelay(1);
+    osDelay(10);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartcomTask */
+/**
+* @brief Function implementing the comTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartcomTask */
+void StartcomTask(void *argument)
+{
+  /* USER CODE BEGIN StartcomTask */
+  (void)argument;
+  static const uint8_t msg[] = "hello\r\n";
+  /* Infinite loop */
+  for(;;)
+  {
+    while(uart2_tx_done != true)
+    {
+      osDelay(1);
+    }
+    uart2_tx_done = false;
+    HAL_StatusTypeDef status = HAL_UART_Transmit_DMA(&huart2, msg, sizeof(msg) - 1);
+
+    if(status == HAL_ERROR){
+      Error_Handler();
+    }
+
+    osDelay(1000);
+  }
+  /* USER CODE END StartcomTask */
 }
 
 /**
