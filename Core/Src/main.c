@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "neuralController.h"
+#include "queue.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define FLT_DECIMAL_DIG 9
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -65,8 +66,13 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t comTaskHandle;
 const osThreadAttr_t comTask_attributes = {
   .name = "comTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for controllerToCom */
+osMessageQueueId_t controllerToComHandle;
+const osMessageQueueAttr_t controllerToCom_attributes = {
+  .name = "controllerToCom"
 };
 /* USER CODE BEGIN PV */
 volatile bool uart2_tx_done = true;
@@ -180,6 +186,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* creation of controllerToCom */
+  controllerToComHandle = osMessageQueueNew (16, sizeof(float), &controllerToCom_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -591,6 +601,9 @@ void StartDefaultTask(void *argument)
     //error_array[i] = yn;
     // save epoch
     //x_values[i] = i;
+    while(xQueueSend(controllerToComHandle, &yn, pdMS_TO_TICKS(10)) != pdPASS){
+      osDelay(1);
+    }
     osDelay(10);
   }
   /* USER CODE END 5 */
@@ -607,7 +620,10 @@ void StartcomTask(void *argument)
 {
   /* USER CODE BEGIN StartcomTask */
   (void)argument;
-  static const uint8_t msg[] = "hello\r\n";
+  float controller_value;
+  static uint8_t msg[32] = {0};
+  //int n = snprintf(msg, sizeof msg, "[%.9g]\n", (double)value);
+  HAL_StatusTypeDef status;
   /* Infinite loop */
   for(;;)
   {
@@ -615,8 +631,14 @@ void StartcomTask(void *argument)
     {
       osDelay(1);
     }
+    while(xQueueReceive(controllerToComHandle, &controller_value, portMAX_DELAY) != pdPASS) {
+        /* Format value into a persistent TX buffer, then start UART DMA. */
+    }
+    int n = snprintf((char *)msg, sizeof msg, "%.9g\n", (float)controller_value);
     uart2_tx_done = false;
-    HAL_StatusTypeDef status = HAL_UART_Transmit_DMA(&huart2, msg, sizeof(msg) - 1);
+    if (n > 0 && n < (int)sizeof msg) {
+      status = HAL_UART_Transmit_DMA(&huart2, msg, sizeof(msg) - 1);
+    }
 
     if(status == HAL_ERROR){
       Error_Handler();
