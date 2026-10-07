@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "neuralController.h"
 #include "queue.h"
+#include "ApplicationTask.h"
+#include "pt1.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,7 +52,7 @@ DMA_HandleTypeDef hdma_dac_ch1;
 
 RNG_HandleTypeDef hrng;
 
-TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
@@ -69,19 +71,19 @@ const osThreadAttr_t comTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for controlTask */
+osThreadId_t controlTaskHandle;
+const osThreadAttr_t controlTask_attributes = {
+  .name = "controlTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
 /* Definitions for controllerToCom */
 osMessageQueueId_t controllerToComHandle;
 const osMessageQueueAttr_t controllerToCom_attributes = {
   .name = "controllerToCom"
 };
 /* USER CODE BEGIN PV */
-volatile bool uart2_tx_done = true;
-double output = 0.0;
-double *input = NULL;
-neuralControllerConfig_st ncConfig;
-control_st control = {0};
-double ***weight = NULL;
-neuron_st **neuron = NULL; 
 float (*randFctPtr)();
 /* USER CODE END PV */
 
@@ -92,11 +94,12 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_RNG_Init(void);
-static void MX_TIM6_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_DAC1_Init(void);
+static void MX_TIM2_Init(void);
 void StartDefaultTask(void *argument);
-void StartcomTask(void *argument);
+extern void ComTask(void *argument);
+extern void ControlTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -110,13 +113,6 @@ float generateRandomFloat(void) {
     HAL_RNG_GenerateRandomNumber(&hrng, &val);
     float float_val = (val / (float)0xffffffff) / divider;
     return float_val;
-}
-
-float i_plant(float yn, float u) {
-    float K = 1;
-    float T = 0.1;
-
-    return yn + K * u * T;
 }
 /* USER CODE END 0 */
 
@@ -155,9 +151,9 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_RNG_Init();
-  MX_TIM6_Init();
   MX_USART2_UART_Init();
   MX_DAC1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   randFctPtr = &generateRandomFloat;
   input = (double*)calloc(ncConfig.inputs, sizeof(float));
@@ -167,9 +163,15 @@ int main(void)
   ncConfig.output_layer_neurons = 1;
   ncConfig.inputs = 2;
   ncConfig.setpoint = 1.0;
+  ncConfig.learning_rate = 0.01;
   ncConfig.isJordan = true;
+  ncConfig.activation_hidden = ACTIVATION_TANH;
+  ncConfig.activation_output = ACTIVATION_LINEAR;
 
-  neuralController_Init(&ncConfig, &control, randFctPtr, &weight, &neuron);
+  if(neuralController_Init(&ncConfig, &control, randFctPtr, &weight, &neuron) != 0){
+    Error_Handler();
+  }
+  PT1_Init(&pt1, 0.010f, 1.0f, 0.001f);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -200,14 +202,19 @@ int main(void)
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* creation of comTask */
-  comTaskHandle = osThreadNew(StartcomTask, NULL, &comTask_attributes);
+  comTaskHandle = osThreadNew(ComTask, NULL, &comTask_attributes);
+
+  /* creation of controlTask */
+  controlTaskHandle = osThreadNew(ControlTask, NULL, &controlTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
+  HAL_TIM_Base_Start(&htim2);
+  HAL_ADC_Start_DMA(&hadc1, adc_buffer, ADC_BUF_LEN);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)&dac_value, 1, DAC_ALIGN_12B_R);
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -342,7 +349,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T2_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
@@ -399,7 +406,7 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
@@ -440,40 +447,47 @@ static void MX_RNG_Init(void)
 }
 
 /**
-  * @brief TIM6 Initialization Function
+  * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM6_Init(void)
+static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM6_Init 0 */
+  /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM6_Init 0 */
+  /* USER CODE END TIM2_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM6_Init 1 */
+  /* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE END TIM6_Init 1 */
-  htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 15;
-  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 15;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_ENABLE;
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM6_Init 2 */
+  /* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM6_Init 2 */
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -567,12 +581,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-    if (huart == &huart2) {
-        uart2_tx_done = true;
-    }
-}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -586,67 +595,12 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   (void)argument;
-  float yn = 0;
   /* Infinite loop */
   for(;;)
   {
-    // set input for the next run
-    input[0] = yn;
-    // Run through feed forward + backpropagation
-    neuralController_Run(&ncConfig, &control, &output, input, weight, neuron);
-    /*Calculate next state of the I plant*/
-    yn = i_plant(yn, output);
-    // save error
-    // error_array[i] = (double)ncConfig.setpoint - yn;
-    //error_array[i] = yn;
-    // save epoch
-    //x_values[i] = i;
-    while(xQueueSend(controllerToComHandle, &yn, pdMS_TO_TICKS(10)) != pdPASS){
-      osDelay(1);
-    }
     osDelay(10);
   }
   /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_StartcomTask */
-/**
-* @brief Function implementing the comTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartcomTask */
-void StartcomTask(void *argument)
-{
-  /* USER CODE BEGIN StartcomTask */
-  (void)argument;
-  float controller_value;
-  static uint8_t msg[32] = {0};
-  //int n = snprintf(msg, sizeof msg, "[%.9g]\n", (double)value);
-  HAL_StatusTypeDef status;
-  /* Infinite loop */
-  for(;;)
-  {
-    while(uart2_tx_done != true)
-    {
-      osDelay(1);
-    }
-    while(xQueueReceive(controllerToComHandle, &controller_value, portMAX_DELAY) != pdPASS) {
-        /* Format value into a persistent TX buffer, then start UART DMA. */
-    }
-    int n = snprintf((char *)msg, sizeof msg, "%.9g\n", (float)controller_value);
-    uart2_tx_done = false;
-    if (n > 0 && n < (int)sizeof msg) {
-      status = HAL_UART_Transmit_DMA(&huart2, msg, sizeof(msg) - 1);
-    }
-
-    if(status == HAL_ERROR){
-      Error_Handler();
-    }
-
-    osDelay(1000);
-  }
-  /* USER CODE END StartcomTask */
 }
 
 /**

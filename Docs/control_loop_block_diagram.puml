@@ -1,0 +1,37 @@
+@startuml
+title General Control Loop Block Diagram
+left to right direction
+
+skinparam shadowing false
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  RoundCorner 0
+}
+skinparam arrow {
+  Color black
+  Thickness 1.5
+}
+
+rectangle "Controller" as controller
+rectangle "Final Control\nElement (FCE)" as fce
+rectangle "Process" as process
+rectangle "Measurement\nSensor/Transmitter" as sensor
+
+circle "Σ" as sum
+
+' Main forward path
+() "Set point, SP" as sp
+sp --> sum
+
+sum --> controller : controller error\n e(t) = (SP − PV)
+controller --> fce : controller output\n signal, CO
+fce --> process : manipulated\n variable
+process --> sensor : process variable
+sensor -up-> sum : measured process\n variable signal, PV
+
+' Disturbance input
+() "Disturbance, D" as disturbance
+disturbance -up-> process
+
+@enduml

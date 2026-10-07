@@ -13,6 +13,29 @@
           "symbolFileName": "${workspaceFolder}/build/Debug/stm32l432kc_neuro.elf"
         }
       ]
+    },
+    {
+      "name": "STM32L432 Debug (OpenOCD)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "cwd": "${workspaceFolder}",
+      "executable": "./build/Debug/stm32l432kc_neuro.elf",
+      "device": "STM32L432KC",
+      "interface": "swd",
+      "svdFile": "${workspaceFolder}/Tools/STM32L432.svd",
+      "configFiles": [
+        "interface/stlink.cfg",
+        "target/stm32l4x.cfg"
+      ],
+      "runToEntryPoint": "main",
+      "postLaunchCommands": [
+        "monitor reset halt",
+        "load",
+        "monitor reset halt"
+      ],
+      "showDevDebugOutput": "none",
+      "gdbPath": "/opt/arm-gdb-py/bin/arm-none-eabi-gdb"
     }
   ]
 }

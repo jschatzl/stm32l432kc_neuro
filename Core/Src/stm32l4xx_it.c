@@ -56,7 +56,10 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_adc1;
+extern ADC_HandleTypeDef hadc1;
 extern DMA_HandleTypeDef hdma_dac_ch1;
+extern DAC_HandleTypeDef hdac1;
+extern TIM_HandleTypeDef htim2;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim7;
@@ -206,6 +209,34 @@ void DMA1_Channel7_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles ADC1 global interrupt.
+  */
+void ADC1_IRQHandler(void)
+{
+  /* USER CODE BEGIN ADC1_IRQn 0 */
+
+  /* USER CODE END ADC1_IRQn 0 */
+  HAL_ADC_IRQHandler(&hadc1);
+  /* USER CODE BEGIN ADC1_IRQn 1 */
+
+  /* USER CODE END ADC1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM2 global interrupt.
+  */
+void TIM2_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM2_IRQn 0 */
+
+  /* USER CODE END TIM2_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim2);
+  /* USER CODE BEGIN TIM2_IRQn 1 */
+
+  /* USER CODE END TIM2_IRQn 1 */
+}
+
+/**
   * @brief This function handles USART2 global interrupt.
   */
 void USART2_IRQHandler(void)
@@ -217,6 +248,19 @@ void USART2_IRQHandler(void)
   /* USER CODE BEGIN USART2_IRQn 1 */
 
   /* USER CODE END USART2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM6 global interrupt, DAC channel1 and channel2 underrun error interrupts.
+  */
+void TIM6_DAC_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
+  /* USER CODE END TIM6_DAC_IRQn 0 */
+  HAL_DAC_IRQHandler(&hdac1);
+  /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
+
+  /* USER CODE END TIM6_DAC_IRQn 1 */
 }
 
 /**
