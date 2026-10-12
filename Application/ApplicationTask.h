@@ -15,7 +15,8 @@
 #include "neuralController.h"
 #include "stm32l4xx.h"
 #include "stm32l4xx_hal.h"
-#include "pt1.h"
+#include "pt2.h"
+#include "pid.h"
 
 #define ADC_BUF_LEN 1
 
@@ -32,19 +33,23 @@ extern TIM_HandleTypeDef htim2;
 extern UART_HandleTypeDef huart2;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 
-extern double output;
-extern double *input;
+extern float output;
+extern float *input;
 extern control_st control;
-extern double ***weight;
+extern float ***weight;
 extern neuron_st **neuron; 
 extern neuralControllerConfig_st ncConfig;
 
-extern uint32_t adc_buffer[];
+extern uint16_t adc_buffer[];
 extern uint16_t dac_value;
 
-extern PT1_Handle_t pt1;
+extern PT2_Handle_t pt2;
+extern PID_Handle_t pid;
 
 void ControlTask(void* argument);
 void ComTask(void *argument);
+float generateXavierFloat(float fanIn, float fanOut);
+float generateGaussFloat(float fanIn, float fanOut);
+float generateRandomFloat(float fanIn, float fanOut);
 
 #endif // APPLICATION_TASK_H
