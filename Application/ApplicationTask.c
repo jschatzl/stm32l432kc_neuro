@@ -72,12 +72,11 @@ void ControlTask(void* argument){
     uint32_t start_cycles = DWT->CYCCNT;
     input[0] = convertAdcToVolts((float)adc_val);
     // Run through feed forward + backpropagation
-    ncConfig.learning_rate = stepDecayLr(control.epoch, initialLr, 1250, 0.1);
+    ncConfig.learning_rate = stepDecayLr(control.epoch, initialLr, 1000, 0.1);
     neuralController_Run(&ncConfig, &control, &output, input, weight, neuron);
     //output = PID_Update(&pid, ncConfig.setpoint, yn);
     uint32_t end = DWT->CYCCNT;
     compute_cycles = end - start_cycles;
-    yn = PT2_Update(&pt2, output);
     dac_value = convertVoltsToDac(yn);
     compute_cycles = DWT->CYCCNT - start_cycles;
     if(compute_cycles > compute_cycles_max) {
@@ -202,5 +201,5 @@ float gaussDistribution(float mu, float sigma) {
 float generateGaussFloat(float fanIn, float fanOut) {
     (void)fanIn;
     (void)fanOut;
-    return gaussDistribution(0.0, 0.2);
+    return gaussDistribution(0.0, 0.01);
 }

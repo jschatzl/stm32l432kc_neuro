@@ -149,11 +149,11 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  randFctPtr = &generateXavierFloat;
+  randFctPtr = &generateGaussFloat;
   input = (float*)calloc(ncConfig.inputs, sizeof(float));
   ncConfig.hidden_layers = 1;
   ncConfig.layers = ncConfig.hidden_layers + 2;
-  ncConfig.neurons = 8;
+  ncConfig.neurons = 16;
   ncConfig.output_layer_neurons = 1;
   ncConfig.inputs = 2;
   ncConfig.setpoint = 0.5;
@@ -172,7 +172,6 @@ int main(void)
           0.001f, /* Ts: 1 kHz */
           0.0f,   /* minimum output */
           3.3f);  /* maximum output */
-  PT2_Init(&pt2, 0.001f);
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->CYCCNT = 0;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
